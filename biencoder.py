@@ -599,6 +599,7 @@ def model_loading(args):
 	model.context_encoder = model.context_encoder.to(context_device)
 	# else:
 	# 	model = model.cuda()
+	return model
 
 
 def train_model(args):
