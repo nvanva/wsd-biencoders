@@ -773,7 +773,9 @@ if __name__ == "__main__":
 		print("Need available GPU(s) to run this model or specify cpu argument...")
 		quit()
 	if args.device=='cpu':
-		context_device = gloss_device = torch.device('cpu')
+		context_device = gloss_device = 'cpu'
+	elif not args.multigpu:
+		gloss_device = context_device
 
 
 	#set random seeds
