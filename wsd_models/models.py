@@ -11,7 +11,7 @@ from torch.nn import functional as F
 import math
 import os
 import sys
-from pytorch_transformers import *
+# from pytorch_transformers import *
 
 from wsd_models.util import *
 
