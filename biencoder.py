@@ -559,20 +559,27 @@ def generate_gold_file(ckpt, data):
 	return
 
 
-def model_loading(args):
-	''' 
-	SET UP FINETUNING MODEL, OPTIMIZER, AND LR SCHEDULE
-	'''
+def model_loading(args, eval_mode=False):
 	model = BiEncoderModel(args.encoder_name, freeze_gloss=args.freeze_gloss, freeze_context=args.freeze_context, tie_encoders=args.tie_encoders)
-	if len(args.load_existing_ckpt) > 0:
-		model_path = os.path.join(args.load_existing_ckpt, 'best_model.ckpt')
+
+	if eval_mode or args.load_existing_ckpt:
+		model_path = os.path.join(args.ckpt if eval_mode else args.load_existing_ckpt, 'best_model.ckpt')
+
 		try:
-			model.load_state_dict(torch.load(model_path), strict=not args.nonstrict_load)
-		except RuntimeError: #this happens with other models that we just want encoder from
-			print(f"Problems when loading the checkpoint from {model_path}:\n", file=sys.stderr)
+			state_dict = torch.load(model_path, map_location=context_device, weights_only=True)
+			# old checkpoints don't have position_ids tensor dumped;
+			# since this is just non-learnt range(0,512), it is safe to take them from (even a randomly initialized) model
+			for enc in ('context_encoder', 'gloss_encoder'):
+				k = f'{enc}.{enc}.embeddings.position_ids'
+				if k in model.state_dict() and not k in state_dict:
+					state_dict[k] = model.state_dict()[k]
+			model.load_state_dict(state_dict, strict=not args.nonstrict_load)
+			print('Model weights successfully loaded from', model_path)
+		except RuntimeError: #this happens with other models that we justz want encoder from
+			print(f"Problems when loading the checkpoint from {model_path}:\n", traceback.format_exc(), file=sys.stderr)
 			print(f"Trying to recover by renaming weights...", file=sys.stderr)
 			#Get and filter state dict
-			state_dict = torch.load(model_path)
+			state_dict = torch.load(model_path, weights_only=True)
 			new_state_dict = OrderedDict()
 			for k, v in state_dict.items():
 				name = k
@@ -721,12 +728,7 @@ def evaluate_model(args):
 	'''
 	LOAD TRAINED MODEL
 	'''
-	model = BiEncoderModel(args.encoder_name, freeze_gloss=args.freeze_gloss, freeze_context=args.freeze_context)
-	model_path = os.path.join(args.ckpt, 'best_model.ckpt')
-	model.load_state_dict(torch.load(model_path, map_location='cpu'), strict=not args.nonstrict_load)
-	model = model.to(torch.device(args.device))
-	
-
+	model = model_loading(args, eval_mode=True)  # loading BEM
 	'''
 	LOAD TOKENIZER
 	'''
