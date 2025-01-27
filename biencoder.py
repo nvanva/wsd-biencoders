@@ -22,6 +22,8 @@ import numpy as np
 from wsd_models.util import *
 from wsd_models.models import BiEncoderModel
 
+import traceback
+
 # NEW in FEWS: hard-coded paths to FEWS and Raganato's datasets - get rid of!
 WN_DATAPATH = '/checkpoint/tblevins/data/wsd_framework/'
 FEWS_DATAPATH = './fews/'
@@ -50,6 +52,9 @@ parser.add_argument('--encoder-name', type=str, default='bert-base',
 	choices=['bert-base', 'bert-large', 'roberta-base', 'roberta-large', 'xlmr-base', 'xlmr-large'])
 parser.add_argument('--ckpt', type=str, required=True,
 	help='filepath at which to save best probing model (on dev set)')
+parser.add_argument('--nonstrict_load', action='store_true',
+	help='Do not enforce that all keys match between the loaded checkpoint and the model, required to load older checkpoints without embeddings.position_ids (which are not weights but just a non-learnt tensor with range(0,512), so no need to load them). But this can lead to some weights staying random / non-finetuned. Start with strict load and check which tensors are not loaded, if required set this to true if you absolutely sure they should not be loaded.')
+
 # NEW in FEWS: --data-path is replaced with --dataset
 #parser.add_argument('--data-path', type=str, required=True,
 #	help='Location of top-level directory for the WordNet Unified WSD Framework or FEWS dataset')
@@ -553,6 +558,49 @@ def generate_gold_file(ckpt, data):
 				f.write('{} {}\n'.format(inst, label))
 	return
 
+
+def model_loading(args):
+	''' 
+	SET UP FINETUNING MODEL, OPTIMIZER, AND LR SCHEDULE
+	'''
+	model = BiEncoderModel(args.encoder_name, freeze_gloss=args.freeze_gloss, freeze_context=args.freeze_context, tie_encoders=args.tie_encoders)
+	if len(args.load_existing_ckpt) > 0:
+		model_path = os.path.join(args.load_existing_ckpt, 'best_model.ckpt')
+		try:
+			model.load_state_dict(torch.load(model_path), strict=not args.nonstrict_load)
+		except RuntimeError: #this happens with other models that we just want encoder from
+			print(f"Problems when loading the checkpoint from {model_path}:\n", file=sys.stderr)
+			print(f"Trying to recover by renaming weights...", file=sys.stderr)
+			#Get and filter state dict
+			state_dict = torch.load(model_path)
+			new_state_dict = OrderedDict()
+			for k, v in state_dict.items():
+				name = k
+				if name.startswith('module.'): #cleaning up from previous multigpu (if still wrapped)
+					name = name[7:] # remove `module.`
+				if name.startswith('encoder.'): #and (name.endswith('.weight') or name.endswith('.bias')):
+					name = name[8:] #remove `encoder.`
+					new_state_dict[name] = v
+			state_dict = new_state_dict
+			#not_overlap = []
+			#for k in state_dict.keys():
+			#	if k not in model.context_encoder.context_encoder.state_dict().keys():
+			#		not_overlap.append(k)
+			#print(not_overlap)
+			#quit()
+			#load context_encoder states
+			model.context_encoder.context_encoder.load_state_dict(state_dict, strict=not args.nonstrict_load)
+			#load gloss_encoder states
+			model.gloss_encoder.gloss_encoder.load_state_dict(state_dict, strict=not args.nonstrict_load)
+
+	#speeding up training by putting two encoders on seperate gpus (instead of data parallel)
+	# if args.multigpu:
+	model.gloss_encoder = model.gloss_encoder.to(gloss_device)
+	model.context_encoder = model.context_encoder.to(context_device)
+	# else:
+	# 	model = model.cuda()
+
+
 def train_model(args):
 	# NEW in FEWS: many changes here: using tensorborad, warm start from a specified checkpoint, evaluating on se2015
 	# when training on Raganato's, on FEWS using accuracy instead of f1,
@@ -571,6 +619,7 @@ def train_model(args):
 	'''
 	tokenizer = load_tokenizer(args.encoder_name)
 
+	model = model_loading(args)  # loading BEM, possibly from an existing checkpoint if specified in args
 	'''
 	LOADING IN TRAINING AND EVAL DATA
 	'''
@@ -593,44 +642,6 @@ def train_model(args):
 		train_steps += batch_steps
 
 	t_total = train_steps*epochs
-
-	''' 
-	SET UP FINETUNING MODEL, OPTIMIZER, AND LR SCHEDULE
-	'''
-	model = BiEncoderModel(args.encoder_name, freeze_gloss=args.freeze_gloss, freeze_context=args.freeze_context, tie_encoders=args.tie_encoders)
-	if len(args.load_existing_ckpt) > 0:
-		model_path = os.path.join(args.load_existing_ckpt, 'best_model.ckpt')
-		try:
-			model.load_state_dict(torch.load(model_path))
-		except RuntimeError: #this happens with other models that we just want encoder from
-			#Get and filter state dict
-			state_dict = torch.load(model_path)
-			new_state_dict = OrderedDict()
-			for k, v in state_dict.items():
-				name = k
-				if name.startswith('module.'): #cleaning up from previous multigpu (if still wrapped)
-					name = name[7:] # remove `module.`
-				if name.startswith('encoder.'): #and (name.endswith('.weight') or name.endswith('.bias')):
-					name = name[8:] #remove `encoder.`
-					new_state_dict[name] = v
-			state_dict = new_state_dict
-			#not_overlap = []
-			#for k in state_dict.keys():
-			#	if k not in model.context_encoder.context_encoder.state_dict().keys():
-			#		not_overlap.append(k)
-			#print(not_overlap)
-			#quit()
-			#load context_encoder states
-			model.context_encoder.context_encoder.load_state_dict(state_dict)
-			#load gloss_encoder states
-			model.gloss_encoder.gloss_encoder.load_state_dict(state_dict)
-
-	#speeding up training by putting two encoders on seperate gpus (instead of data parallel)
-	# if args.multigpu:
-	model.gloss_encoder = model.gloss_encoder.to(gloss_device)
-	model.context_encoder = model.context_encoder.to(context_device)
-	# else:
-	# 	model = model.cuda()
 
 	criterion = torch.nn.CrossEntropyLoss(reduction='none')
 
@@ -711,7 +722,7 @@ def evaluate_model(args):
 	'''
 	model = BiEncoderModel(args.encoder_name, freeze_gloss=args.freeze_gloss, freeze_context=args.freeze_context)
 	model_path = os.path.join(args.ckpt, 'best_model.ckpt')
-	model.load_state_dict(torch.load(model_path), strict=False)
+	model.load_state_dict(torch.load(model_path, map_location='cpu'), strict=not args.nonstrict_load)
 	model = model.to(torch.device(args.device))
 	
 
