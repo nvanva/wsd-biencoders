@@ -41,8 +41,8 @@ parser.add_argument('--silent', action='store_true',
 parser.add_argument('--multigpu', action='store_true')
 parser.add_argument('--lr', type=float, default=0.00001)
 parser.add_argument('--warmup', type=int, default=10000)
-parser.add_argument('--context-max-length', type=int, default=128)
-parser.add_argument('--gloss-max-length', type=int, default=32)
+parser.add_argument('--context-max-length', type=int, default=128)  # TODO: contexts are stripped to this length! info is lost for longer glosses!
+parser.add_argument('--gloss-max-length', type=int, default=32)  # TODO: glosses are stripped to this length! info is lost for longer glosses!
 parser.add_argument('--epochs', type=int, default=20)
 # NEW in FEWS: context batch size increased from 4 to 8
 parser.add_argument('--context-bsz', type=int, default=8)
@@ -136,6 +136,16 @@ def preprocess_wn_glosses(data, tokenizer, wn_senses, max_len=-1):
 	return sense_glosses
 
 def preprocess_fews_glosses(data, tokenizer, senses, max_len=-1):
+	"""
+
+	:param data: a list of (usage, true sid) pairs; tags <WSD> and </WSD> denote the target word occurrence;
+	true sid acts as a key to senses: sid.split('.')[:2] is used to find glosses of the same lemma (e.g. dictionary.noun),
+	also it is checked that true sid is among sids for this key
+	:param tokenizer:
+	:param senses: a dict key->(list of sids, list of glosses);
+	:param max_len: usages are padded / trimmed up to this length
+	:return:
+	"""
 	# NEW in FEWS: new function
 	sense_glosses = {}
 	gloss_lengths = []
@@ -560,6 +570,15 @@ def generate_gold_file(ckpt, data):
 
 
 def model_loading(args, eval_mode=False):
+	global context_device, gloss_device
+	if not torch.cuda.is_available() and args.device != 'cpu':
+		print("Need available GPU(s) to run this model or specify cpu argument...")
+		quit()
+	if args.device == 'cpu':
+		context_device = gloss_device = 'cpu'
+	elif not args.multigpu:
+		gloss_device = context_device = args.device
+
 	model = BiEncoderModel(args.encoder_name, freeze_gloss=args.freeze_gloss, freeze_context=args.freeze_context, tie_encoders=args.tie_encoders)
 
 	if eval_mode or args.load_existing_ckpt:
@@ -782,14 +801,6 @@ if __name__ == "__main__":
 	#parse args
 	args = parser.parse_args()
 	print(args)
-
-	if not torch.cuda.is_available() and args.device!='cpu':
-		print("Need available GPU(s) to run this model or specify cpu argument...")
-		quit()
-	if args.device=='cpu':
-		context_device = gloss_device = 'cpu'
-	elif not args.multigpu:
-		gloss_device = context_device
 
 
 	#set random seeds
