@@ -29,7 +29,8 @@ class BEMWSD:
         gloss_dict = biencoder.preprocess_fews_glosses(contexts, self.tokenizer, inventory, max_len=self.args.gloss_max_length)
         eval_data = biencoder.preprocess_fews_context(self.tokenizer, contexts, bsz=1, max_len=self.args.context_max_length)
         eval_preds = _eval(eval_data, self.model, gloss_dict, multigpu=False)
-        return eval_preds
+        res = [pred for inst, pred in eval_preds]
+        return res
 
 
 @hydra.main(config_path="config", config_name="config")
