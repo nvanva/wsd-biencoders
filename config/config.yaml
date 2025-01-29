@@ -1,0 +1,22 @@
+device: 'cuda:0'
+context_max_length: 512  # TODO: all items in a batch may be padded up to this length reducing performance - study this!
+gloss_max_length: 512  # TODO: glosses are stripped to this length! info is lost for longer glosses!
+# NEW in FEWS: context batch size increased from 4 to 8
+context_bsz: 8
+gloss_bsz: 256
+
+#sets which parts of the model to freeze ❄️ during training for ablation
+freeze_context: false
+freeze_gloss: false
+tie_encoders: false
+
+# NEW in FEWS: Terra added XLMR as one of the backbones (in parallel to us?)
+encoder_name: 'bert-base'  # Options: ['bert-base', 'bert-large', 'roberta-base', 'roberta-large', 'xlmr-base', 'xlmr-large']
+nonstrict_load: false  # do not enforce that all keys match between the loaded checkpoint and the model, required to load older checkpoints without embeddings.position_ids (which are not weights but just a non-learnt tensor with range(0,512), so no need to load them). But this can lead to some weights staying random / non-finetuned. Start with strict load and check which tensors are not loaded, if required set this to true if you absolutely sure they should not be loaded.
+ckpt: null  # Required: checkpoint
+
+
+server:
+  host: 0.0.0.0
+  debug: true
+  port: 4001
