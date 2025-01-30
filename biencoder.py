@@ -25,7 +25,7 @@ from wsd_models.models import BiEncoderModel
 import traceback
 
 # NEW in FEWS: hard-coded paths to FEWS and Raganato's datasets - get rid of!
-WN_DATAPATH = '/checkpoint/tblevins/data/wsd_framework/'
+WN_DATAPATH = './WSD_Evaluation_Framework/'
 FEWS_DATAPATH = './fews/'
 
 #SAMPLE_N_FROM_TRAIN = 1500 #total num sentences in test is 1173
