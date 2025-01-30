@@ -1,3 +1,29 @@
+
+-------------------------------------------
+This is the updated code of the BEM model https://github.com/facebookresearch/wsd-biencoders 
+
+The updates include:
+  * merged code for training and evaluating BEM on the FEWS dataset received from Terra Blevins, the author of BEM
+  * a wrapper class BEMWSD allows doing WSD for your own usages and inventories; also converts any kind of key inventories and sense ids to the format required by BEM
+  * HTTP API
+  * models trained with different backbones (bert, roberta, xlmr) on different data (fews, a subset consisting of targets from CODWOE, combination of semcor and FEWS, more TBD)
+  * evaluation scripts and comparison of these models
+
+# Installation
+TBD
+Can use environment from https://github.com/GrachevArtem/consec-better-glosses
+
+# Run HTTP API
+```
+bash download_models.sh
+bash run_server.sh
+```
+
+
+See the original README.md below.
+-------------------------------------------
+
+
 # Gloss Informed Bi-encoders for WSD 
 
 This is the codebase for the paper [Moving Down the Long Tail of Word Sense Disambiguation with Gloss Informed Bi-encoders](https://blvns.github.io/papers/acl2020.pdf). 
