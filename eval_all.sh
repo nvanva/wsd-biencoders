@@ -11,6 +11,6 @@ for x in `find -name "*.ckpt"`; do
 		echo "No such dataset: $ds, choose from fews and wn"
 	fi
 
-	python biencoder.py --dataset=$ds --ckpt $dir --eval "$x" --encoder-name $encoder "${@:3}" |tee $dir/eval_${ds}-${part}.log
+	python biencoder.py --dataset=$ds --ckpt $dir --eval "$x" --encoder-name $encoder "${@:3}" &>$dir/eval_${ds}-${part}.log
 
 done
