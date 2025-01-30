@@ -1,6 +1,4 @@
-
--------------------------------------------
-This is the updated code of the BEM model https://github.com/facebookresearch/wsd-biencoders 
+==== This is the updated code of the BEM model https://github.com/facebookresearch/wsd-biencoders === 
 
 The updates include:
   * merged code for training and evaluating BEM on the FEWS dataset received from Terra Blevins, the author of BEM
@@ -9,19 +7,25 @@ The updates include:
   * models trained with different backbones (bert, roberta, xlmr) on different data (fews, a subset consisting of targets from CODWOE, combination of semcor and FEWS, more TBD)
   * evaluation scripts and comparison of these models
 
-# Installation
+## Installation
 TBD
 Can use environment from https://github.com/GrachevArtem/consec-better-glosses
 
-# Run HTTP API
-```
+## Run HTTP API
+```bash
 bash download_models.sh
 bash run_server.sh
 ```
 
+## Evaluate ...
+... all checkpoints you have on FEWS and datasets Raganato's WSD Evaluation Framework. 
+Download [FEWS](https://nlp.cs.washington.edu/fews/) and [Raganato's Framework](http://lcl.uniroma1.it/wsdeval/) first.
+```bash
+bash eval_all.sh fews dev
+bash eval_all.sh wn semeval2007
+```
 
-See the original README.md below.
--------------------------------------------
+=== See the original README.md below. ===
 
 
 # Gloss Informed Bi-encoders for WSD 
