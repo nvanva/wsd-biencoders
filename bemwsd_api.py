@@ -21,15 +21,21 @@ class BEMWSD:
         :return: a list of selected sids parallel to the input list of usages
         """
         assert all(len(sids)==len(glosses) for sids, glosses in inventory.values())
+        # the original BEM code we call requires specific naming of sids and their correspondence to keys, so we rename both
+        iitems = list(inventory.items())  # order is important to build the oldkey->newkey mapping
+        oldkey2newkey = {skey: f'{i}.x' for i, (skey, _) in enumerate(iitems)}
+        inventory = {f'{i}.x': ([f'{i}.x.{s}' for s in sids], glosses)  # prepending 2 dot-separated parts matching the new keys[
+                     for  i, (skey, (sids, glosses)) in enumerate(iitems)}
+
         contexts = []
-        for s, st, en, key in usages:
+        for s, st, en, oldkey in usages:
             ctx = f'{s[:st]}<WSD>{s[st:en]}</WSD>{s[en:]}'
-            label = inventory[key][0][0]  # can use any sid as the gold label because no evaluation, just use the first
+            label = inventory[oldkey2newkey[oldkey]][0][0]  # can use any sid as the gold label because no evaluation, just use the first
             contexts.append((ctx,label))
         gloss_dict = biencoder.preprocess_fews_glosses(contexts, self.tokenizer, inventory, max_len=self.args.gloss_max_length)
         eval_data = biencoder.preprocess_fews_context(self.tokenizer, contexts, bsz=1, max_len=self.args.context_max_length)
         eval_preds = _eval(eval_data, self.model, gloss_dict, multigpu=False)
-        res = [pred for inst, pred in eval_preds]
+        res = ['.'.join(pred.split('.')[2:]) for inst, pred in eval_preds]  # convert back to the original class names
         return res
 
 
