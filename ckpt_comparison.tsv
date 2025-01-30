@@ -1,0 +1,7 @@
+0	fews-dev	fews-test	wn-ALL	wn-semeval2007
+ft_fewsCodwoeTargets/bert-base	0.7135	0.7016	77.9	68.6
+original/bert-base	0.577	0.575	79.0	74.5
+train_fews/bert-base	0.7409	0.7353000000000001	66.4	51.6
+train_fewsCodwoeTargets/bert-base	0.7136	0.7069	65.8	49.9
+train_fewsCodwoeTargets/roberta-large	0.7479	0.7357	66.0	49.7
+train_fewsCodwoeTargets/xlmr-large	0.7409	0.7318	66.1	54.5
