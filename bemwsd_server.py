@@ -1,6 +1,6 @@
 import hydra
 from omegaconf import DictConfig
-from bemwsd_api import BEMWSD
+from bemwsd_api import BEMWSD, BEMWSD_Opt
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -15,7 +15,7 @@ def wsd():
 @hydra.main(config_path="config", config_name="config")
 def main(cfg: DictConfig) -> None:
     global bemwsd
-    bemwsd = BEMWSD(cfg)
+    bemwsd = BEMWSD_Opt(cfg)
 
     app.run(
         host=cfg.server.host,
